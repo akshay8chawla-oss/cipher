@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0a0a0a;
-    --ink:#cfcfab;
+    --ink:#cfcfcf;
     --ink-dim:#8a8a8a;
     --ink-faint:#5a5a5a;
     --line:#333;
@@ -61,6 +61,46 @@
   #hidden{font-size:13px;letter-spacing:.3em;color:#3a3a3a;cursor:pointer;user-select:none;transition:color .6s;}
   #decoded{font-size:12px;letter-spacing:.1em;color:var(--amber);margin-top:.8rem;height:16px;}
   #decoded a{color:var(--amber);text-decoration:none;}
+
+  /* ---------- CONTACT FORM ---------- */
+  .contact{margin-top:2.8rem;padding-top:1.8rem;border-top:.5px solid var(--line-soft);max-width:440px;margin-left:auto;margin-right:auto;}
+  .contact-label{font-size:11px;letter-spacing:.2em;color:var(--ink-faint);margin-bottom:1.4rem;text-align:center;}
+  .field{margin-bottom:1.1rem;}
+  .field label{display:block;font-size:11px;letter-spacing:.18em;color:var(--ink-faint);margin-bottom:.5rem;}
+  .field input,.field textarea{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:.5px solid var(--line);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.04em;
+    padding:8px 2px;
+    outline:none;
+    transition:border-color .3s;
+    resize:vertical;
+  }
+  .field input:focus,.field textarea:focus{border-bottom-color:var(--amber);}
+  .field textarea{min-height:70px;line-height:1.7;}
+  .field input::placeholder,.field textarea::placeholder{color:#3a3a3a;}
+  #send{
+    width:100%;
+    background:transparent;
+    border:.5px solid var(--line);
+    color:var(--ink-dim);
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.2em;
+    padding:12px;
+    border-radius:8px;
+    cursor:pointer;
+    margin-top:.6rem;
+    transition:border-color .3s,color .3s;
+  }
+  #send:hover:not(:disabled){border-color:var(--amber);color:var(--amber);}
+  #send:disabled{opacity:.5;cursor:default;}
+  #formMsg{font-size:12px;letter-spacing:.1em;color:var(--ink-faint);min-height:18px;margin-top:1rem;text-align:center;}
 
   /* ---------- SOUND TOGGLE ---------- */
   #sound{position:fixed;top:16px;right:18px;background:transparent;border:none;color:var(--ink-faint);font-family:var(--mono);font-size:11px;letter-spacing:.15em;cursor:pointer;z-index:10;}
@@ -116,6 +156,28 @@
         <div id="hidden" title="decode me">-... .-. . .-- / .- --. .- .. -.</div>
         <div id="decoded"></div>
       </div>
+
+      <div class="contact">
+        <div class="contact-label">SAY SOMETHING BACK</div>
+        <form id="contactForm">
+          <div class="field">
+            <label for="cName">your name</label>
+            <input id="cName" name="name" type="text" placeholder="who's writing" required />
+          </div>
+          <div class="field">
+            <label for="cEmail">your email</label>
+            <input id="cEmail" name="email" type="email" placeholder="where we reach you" required />
+          </div>
+          <div class="field">
+            <label for="cMessage">message</label>
+            <textarea id="cMessage" name="message" placeholder="tell us what you tasted" required></textarea>
+          </div>
+          <!-- honeypot: bots fill this, humans don't see it -->
+          <input type="checkbox" name="botcheck" tabindex="-1" style="display:none" aria-hidden="true" />
+          <button id="send" type="submit">send it</button>
+          <div id="formMsg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -129,6 +191,7 @@
   /* ====== CONFIG — edit these ====== */
   var ANSWER = "FUNK";          // the password the puzzle reveals
   var REORDER_URL = "#";        // where "brew again" should go (a reorder / next-drop page)
+  var WEB3FORMS_KEY = "YOUR-ACCESS-KEY-HERE";  // paste your key from web3forms.com
   /* ================================= */
 
   var pw    = document.getElementById('pw');
@@ -214,6 +277,65 @@
   hidden.addEventListener('click', function(){
     hidden.style.color = '#7a6a4a';
     decoded.innerHTML = '<a href="'+REORDER_URL+'">brew again. →</a>';
+  });
+
+  /* ---- contact form -> web3forms ---- */
+  var contactForm = document.getElementById('contactForm');
+  var sendBtn = document.getElementById('send');
+  var formMsg = document.getElementById('formMsg');
+
+  contactForm.addEventListener('submit', function(e){
+    e.preventDefault();
+
+    var name = document.getElementById('cName').value.trim();
+    var email = document.getElementById('cEmail').value.trim();
+    var message = document.getElementById('cMessage').value.trim();
+
+    if (!name || !email || !message){
+      formMsg.textContent = 'fill all three.';
+      formMsg.style.color = 'var(--err)';
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'sending…';
+    formMsg.textContent = '';
+
+    var payload = {
+      access_key: WEB3FORMS_KEY,
+      subject: 'New message from Cipher Brewing',
+      from_name: 'Cipher Brewing site',
+      name: name,
+      email: email,
+      message: message,
+      botcheck: contactForm.botcheck.checked
+    };
+
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if (data.success){
+        contactForm.reset();
+        formMsg.textContent = 'sent. thank you.';
+        formMsg.style.color = 'var(--amber)';
+        sendBtn.textContent = 'sent';
+      } else {
+        formMsg.textContent = 'something broke. try again.';
+        formMsg.style.color = 'var(--err)';
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'send it';
+      }
+    })
+    .catch(function(){
+      formMsg.textContent = 'no connection. try again.';
+      formMsg.style.color = 'var(--err)';
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'send it';
+    });
   });
 
   /* ---- music ---- */
